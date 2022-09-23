@@ -1,0 +1,21 @@
+global:
+  prefix:     plot
+  x_format:   "%.1f"
+  x_min:      0.01
+  x_max:      10.0
+  x_label:    t (MYr)
+  x_log:      true
+  grid:       true
+  plot_width: 5
+  plot_height: 3
+  dpi:        300
+  div_by:     [al,p_radius]
+  div_prefix: ["log(al) = ","r = "]
+  div_suffix: [""," km"]
+
+plots:
+  - quantity: h2o_frac
+    filename: water
+    y_log:    true
+    y_min:    1e-6
+    y_max:    1e0
