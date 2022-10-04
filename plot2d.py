@@ -49,11 +49,11 @@ class Image:
             self.label    = "{} ({})".format(symbol,units)
             # Calculate statistics
             self.mean     = np.mean(data)
-            self.max      = np.max(data)
-            self.min      = np.min(data)
             # Calculate quartiles
-            
+            self.quart = calc_array_quartiles(data)
             # Calculate other values, trivial calculation time
+            self.min    = self.quart[0]
+            self.max    = self.quart[4] 
             self.median = self.quart[2] # Median, synonym
             self.iqr    = self.quart[3] - self.quart[1] # Interquartile range
     def read_data(self,filename):
@@ -191,7 +191,10 @@ class Image:
                 cp[j,i]=struct.unpack("f",fdata.read(4))[0]
                 kt[j,i]=struct.unpack("f",fdata.read(4))[0]
                 ht[j,i]=struct.unpack("f",fdata.read(4))[0]
-        
+        # Compute distance of each grid point from planetary center [m]
+        for i in range(1,xnumx):
+            for j in range(1,ynumy):    
+                radius[j,i]=(((i-1)*(xsize/(xnumx-1))-(xsize/2.000))**(2.000)+((j-1)*(ysize/(ynumy-1))-(ysize/2.000))**(2.000))**(0.500)
         # Joe edit: Extract variables
         self.xnumx, self.ynumy = xnumx, ynumy
         self.xsize, self.ysize = xsize, ysize
@@ -255,30 +258,28 @@ class Image:
 
     def get_temp_statistics(self):
         try:
-            test = self.mantle_radius
-            test = self.core_radius
+            self.mantle_radius
+            self.core_radius
         except:
-            print("Missing radius parameters of simulation, run planetesimal_radii(mantle_radius,core_mantle_ratio)")
-            return
+            raise("Missing radius parameters of simulation, run planetesimal_radii(mantle_radius,core_mantle_ratio)")
         try: 
-            test = self.core_temp
-            test = self.mantle_temp
+            self.core_temp
+            self.mantle_temp
         except:
             self.calc_core_temps()
             self.calc_mantle_temps()
-        
-        self.core_quartiles = [] 
+        self.core_mean_temp    = np.mean(self.core_temp)
+        self.core_min_temp     = np.min(self.core_temp)
+        self.core_max_temp     = np.max(self.core_temp)
+        self.core_stdev_temp   = np.std(self.core_temp)
+        self.mantle_mean_temp  = np.mean(self.mantle_temp)
+        self.mantle_min_temp   = np.min(self.mantle_temp)
+        self.mantle_max_temp   = np.max(self.mantle_temp)
+        self.mantle_stdev_temp = np.std(self.mantle_temp)
 
-        self.mantle_quartiles = []
-            
-    def calc_array_quartiles(data):
-        quart = [] # Make empty list
-        quart.append(np.min(data)) # 0th quartile, or minimum 
-        quart.append(np.quantile(data,0.25)) # 1st quartile
-        quart.append(np.quantile(data,0.50)) # 2nd quartile
-        quart.append(np.quantile(data,0.75)) # 3rd quartile
-        quart.append(np.max(data)) # 4th quartile, or max
-        return quart
+    def calc_region_temps(self):
+        self.calc_core_temps()
+        self.calc_mantle_temps()
 
     def calc_core_temps(self):
         try:
@@ -286,7 +287,8 @@ class Image:
             test = self.core_radius
         except:
             raise("Missing radius parameters of simulation, run planetesimal_radii(mantle_radius,core_mantle_ratio)")
-        self.core_temp = radius_subset(self.temp,self.radius,0.0,self.core_mantle_ratio)
+        self.core_temp = radius_subset(self.temp.data,self.radius.data,0.0,self.core_radius,padding=0.05)
+        # self.core_temp = gut_ambient(self.core_temp)
     
     def calc_mantle_temps(self):
         try:
@@ -294,13 +296,17 @@ class Image:
             test = self.core_radius
         except:
             raise("Missing radius parameters of simulation, run planetesimal_radii(mantle_radius,core_mantle_ratio)")
-        self.mantle_temp = radius_subset(self.temp,self.radius,self.mantle_radius,self.core_mantle_ratio)
+        self.mantle_temp = radius_subset(self.temp.data,self.radius.data,self.core_radius,self.mantle_radius,padding=0.05)
+        # self.mantle_temp = gut_ambient(self.mantle_temp)
 
     def calc_desiccation(self):
         # np.zeros((self.ynumy,self.xnumx),dtype=np.int8)
         # for i in range(self.ynumy):
         #     for j in range(self.xnumx):
         #         if self.temp.data[i,j] >= 
+
+
+
         return
 
     def calc_temperature_ranges(self):
@@ -310,15 +316,36 @@ class Image:
 
         return
 
-def radius_subset(quant,radius,r_min,r_max):
+def calc_array_quartiles(data):
+    quart = [] # Make empty list
+    quart.append(np.min(data))
+    quart.append(np.quantile(data,0.25)) # 1st quartile
+    quart.append(np.quantile(data,0.50)) # 2nd quartile
+    quart.append(np.quantile(data,0.75)) # 3rd quartile
+    quart.append(np.max(data))
+    return quart
+
+def radius_subset(quant,radius,r_min,r_max,padding=0.0):
     q = []
+    del_r = r_max - r_min
+    r_pad = del_r * padding
+    r_min = r_min + r_pad
+    r_max = r_max - r_pad
     ny,nx = np.shape(quant)
     for i in range(ny):
         for j in range(nx):
             rad = radius[i,j]
-            if rad >= r_min and rad <= r_max:
+            if rad > r_min and rad < r_max:
                 q.append(quant[i,j])
     return np.asarray(q)
+
+def gut_ambient(temps):
+    t_ambient = 155.
+    new_temps = []
+    for temp in temps:
+        if temp > t_ambient:
+            new_temps.append(temp)
+    return np.asarray(new_temps)
 
 def plot_circles(ax,sim,colour="r",alpha=0.3):
     """
@@ -332,3 +359,81 @@ def plot_circles(ax,sim,colour="r",alpha=0.3):
     draw(sim.header["core_radius"])
     draw(sim.header["mantle_radius"])
     return ax
+
+def plot_split(ax,data,col):
+    """
+    Plot split lines of temporal data
+    Plots lines for:
+        - min
+        - max
+        - mean
+        - +- stdev
+    Plots fills for:
+        - min->max
+        - -stdev->+stdev
+    Inputs:
+        - ax: input figure
+        - data pandas array generated from csv from postprocess.py
+        - col: plot colour, either numeric ("CN") or specific ("r","k",etc.)
+    Outputs:
+        - ax: parts of a plot
+    """
+    if type(col) == int:
+        col="C"+str(col)
+    ax.fill_between(data.t,data["min"],data["max"],color=col,alpha=0.25)
+    ax.fill_between(data.t,data["mean"]-data["std"],data["mean"]+data["std"],color=col,alpha=0.25)
+    ax.plot(data.t,data["min"],color=col)
+    ax.plot(data.t,data["max"],color=col)
+    ax.plot(data.t,data["mean"],color=col)
+    ax.plot(data.t,data["mean"]-data["std"],color=col)
+    ax.plot(data.t,data["mean"]+data["std"],color=col)
+    return ax
+
+class Desiccation:
+    def __init__(self,folder_name) -> None:
+        """
+        Calculate desiccation levels
+        Also includes plot routines
+        """
+        filename = folder_name+"/desiccation_times.npz"
+        try:
+            data = np.load(filename)
+            self.vap  = data["vap"]
+            self.melt = data["melt"]
+        except:
+            print("Something's up with reading!")
+            raise
+    def generate_img(self,t):
+        """
+        For a given time, generate a numpy array
+        Key:
+            - If cell is frozen    = 0
+            - If cell is melting   = 1
+            - If cell is vaporised = 2
+        """
+        res = np.shape(self.vap)
+        img = np.zeros(res)
+        for i in range(res[0]):
+            for j in range(res[1]):
+                vap_time  = self.vap[i,j]
+                melt_time = self.melt[i,j]
+                pix = 0
+                if t >= melt_time:
+                    pix = 1
+                if t >= vap_time:
+                    pix = 2
+                img[i,j] = pix
+        # Store most recent image array in class
+        self.last_img = img
+        # Also return if needed
+        return img
+    def plot(self,ax):
+        ax.imshow(self.last_img)
+        return ax
+    def desiccation_percent(self):
+        return
+    def desiccation_raw(self):
+        """
+        Get the actual number of dessicated cells
+        """
+        return

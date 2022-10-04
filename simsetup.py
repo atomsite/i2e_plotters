@@ -5,6 +5,7 @@ Set up simulation in separate folder with requisite files
 Creates a new init.t3c file, traverses to directory and executes it
 """
 
+source_file_folder = "simulation_files"
 t3c_files = ["amir.t3c",
              "core_dynamo.t3c",
              "core_stuff.t3c",
@@ -16,10 +17,10 @@ t3c_files = ["amir.t3c",
              "mode.t3c",
              "pebble_accr.t3c",
              "pebble_history.t3c",
-             "start_mass.t3c",
-             "mars_crust",
-             "mars_mantle"]
+             "start_mass.t3c"]
+compressed_files = ["mars_crust.gz","mars_mantle.gz"]
 
+from bz2 import compress
 from string import Template
 from shutil import copyfile
 from os import mkdir
@@ -102,10 +103,19 @@ def gen_sim(mant_ext,core_frac,al,fe,exit_time,init_time,work_dir):
     print("! Already created {}!".format(work_dir))
 
   try:
+    # Copy all config files from folder simulation_files
     for file in tqdm(t3c_files):
-      src = "{}/{}".format(repo_path,file)
+      src = "{}/{}/{}".format(repo_path,source_file_folder,file)
       dst = "{}/{}".format(work_dir,file)
       copyfile(src,dst)
+    # Transfer and decompress crustal/mantle files
+    for file in tqdm(compressed_files):
+      src = "{}/{}/{}".format(repo_path,source_file_folder,file)
+      dst = "{}/{}".format(work_dir,file)
+      copyfile(src,dst)
+      # Decompress mars crustal/mantle files, since they are quite large
+      compress = Popen(["gunzip",file],cwd=work_dir)
+      compress.wait()
   except FileNotFoundError:
     raise("Cannot find files, make sure they are in the same directory as this script!")
   
