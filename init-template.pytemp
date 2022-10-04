@@ -1,6 +1,6 @@
 /GRID_PARAMETERS_DESCRIPTIONS
-       251-xnumx
-       251-ynumy
+       $x_res
+       $y_res
          4-mnumx
          4-mnumy
     $x_size

@@ -71,7 +71,7 @@ def write_yaml(work_dir,mant_ext,core_frac,al_ratio,fe_ratio,sim_time,init_time)
     dump(config,yaml_file)
   return
 
-def gen_sim(mant_ext,core_frac,al,fe,exit_time,init_time,work_dir):
+def gen_sim(mant_ext,core_frac,al,fe,exit_time,init_time,work_dir,xyres=501):
   # Quick checks for input conditions
   if mant_ext <= 0.:
     print("!!! Zero or negative mantle size! Check inputs !!!")
@@ -137,6 +137,9 @@ def gen_sim(mant_ext,core_frac,al,fe,exit_time,init_time,work_dir):
 
   # Begin modifying template
   init_params = {}
+  # Resolution
+  init_params["x_res"] = "{}-xnumx".format(xyres)
+  init_params["y_res"] = "{}-ynumy".format(xyres)
   # Format string for exit time
   init_params["exit_time"] = "{:.3e}-timeexit(yr)".format(exit_time)
   init_params["init_time"] = "{:.3e}-timesum(yr)".format(init_time)
@@ -156,7 +159,7 @@ def gen_sim(mant_ext,core_frac,al,fe,exit_time,init_time,work_dir):
   init_params["core_extent"] = "{}".format(core_ext_m)
   init_params["mantle_extent"] = "{}".format(mant_ext_m)
   # Calculate simulation size, which is the diameter of the planetisemal
-  sim_ext_m = int(mant_ext_m * 2.75)
+  sim_ext_m = int(mant_ext_m * 1)
   sim_grav_m = int(mant_ext_m * 1) # Recalc grav
   # Check to see if a core is included
   if core_ext > 0:
@@ -194,8 +197,9 @@ if __name__ == "__main__":
   parse.add_argument("core_size",type=float,help="Core Size (km)")
   parse.add_argument("al26_ratio",type=float,help="Al26/Al27 ratio comparative to solar system ratio")
   parse.add_argument("fe60_ratio",type=float,help="Fe60/Fe56 ratio comparative to solar system ratio")
-  parse.add_argument("-e","--exit_time",type=float,default=15e6,help="Exit time in years, default is 15Myr")
+  parse.add_argument("-e","--exit_time",type=float,default=20e6,help="Exit time in years, default is 20Myr")
   parse.add_argument("-f","--folder_name",type=str,help="Folder name, defaults to sim_p_<planet_size>_c_<core_size>_al_<al26_ratio>_fe_<fe60_ratio>")
+  parse.add_argument("-xy","--xysize",type=int,default=251,help="Simulation resolution in cells")
   args = parse.parse_args()
   # Use argparse as a wrapper
   mant_ext  = args.planet_size
